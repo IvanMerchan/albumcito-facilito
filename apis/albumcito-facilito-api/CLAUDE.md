@@ -16,7 +16,7 @@ This is the backend API for Albumcito Facilito, a sticker-album collection app t
 - **Language:** TypeScript 5 (`experimentalDecorators` + `emitDecoratorMetadata`, required by Nest's DI).
 - **HTTP adapter:** Express (`@nestjs/platform-express`).
 - **Linting:** ESLint 9 flat config (`typescript-eslint` + `eslint-plugin-prettier`).
-- **Testing:** Jest + `ts-jest` for unit tests, Jest + Supertest for e2e tests.
+- **Testing:** Jest + `ts-jest` for unit tests, Jest + Supertest for e2e tests. BDD scenarios use `jest-cucumber` with Gherkin `.feature` files.
 - **Persistence layer:** not yet decided — confirm with the user before adding a database/ORM.
 
 ## Commands
@@ -43,6 +43,7 @@ Run from this directory (`apis/albumcito-facilito-api/`), or from the repo root 
 - Keep controllers thin: they should only handle routing, validation via DTOs, and delegate business logic to services/providers.
 - Use constructor-based dependency injection (`private readonly xService: XService`) — never instantiate providers manually.
 - Co-locate unit tests next to the code they cover (`*.spec.ts`), following `src/app.controller.spec.ts`; put end-to-end tests in `test/*.e2e-spec.ts`, following `test/app.e2e-spec.ts`.
+- For BDD scenarios, co-locate a Gherkin `.feature` file with a `*.bdd.spec.ts` step-definition file using `jest-cucumber` (`loadFeature`/`defineFeature`), following `src/app.controller.feature` + `src/app.controller.bdd.spec.ts`. Use `loadFeature(path, { loadRelativePath: true })` so the feature path resolves relative to the spec file.
 - Keep code typed end-to-end — avoid `any` in new code even though the base `tsconfig.json` has `noImplicitAny: false` for compatibility with generated files.
 - Run `pnpm lint` and `pnpm test` before considering a change done.
 

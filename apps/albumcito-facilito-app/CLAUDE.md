@@ -15,7 +15,7 @@ This is the frontend application for Albumcito Facilito, a sticker-album collect
 - **Language:** TypeScript (strict mode).
 - **Styling:** Tailwind CSS v4 (CSS-first config via `@theme` in `app/globals.css`; `tailwind.config.ts` is only for JS-side config like plugins).
 - **Linting:** ESLint 9 flat config (`eslint-config-next`, core-web-vitals + TypeScript rules).
-- **Testing:** Vitest + React Testing Library, jsdom environment.
+- **Testing:** Vitest + React Testing Library, jsdom environment. BDD scenarios use `@amiceli/vitest-cucumber` with Gherkin `.feature` files.
 
 ## Commands
 
@@ -35,6 +35,7 @@ Run from this directory (`apps/albumcito-facilito-app/`), or from the repo root 
 
 - Use the App Router: routes live under `app/`, one `page.tsx` per route, shared UI in `layout.tsx`.
 - Co-locate tests next to the code they cover (e.g. `app/page.tsx` + `app/page.test.tsx`), following the pattern in `app/page.test.tsx`.
+- For BDD scenarios, co-locate a Gherkin `.feature` file with a `*.bdd.test.tsx` step-definition file using `@amiceli/vitest-cucumber` (`loadFeature`/`describeFeature`), following `app/page.feature` + `app/page.bdd.test.tsx`.
 - Prefer Server Components by default; add `"use client"` only when a component needs interactivity, state, or browser-only APIs.
 - Use the `@/*` import alias (configured in `tsconfig.json`) instead of relative paths that climb more than one directory.
 - Style with Tailwind utility classes directly in JSX; add shared design tokens (colors, fonts, spacing) via `@theme` in `app/globals.css` rather than inline styles.
