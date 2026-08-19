@@ -1,0 +1,7 @@
+packages:
+  - "apps/*"
+  - "apis/*"
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
