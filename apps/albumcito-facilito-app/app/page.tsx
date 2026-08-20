@@ -1,3 +1,4 @@
+import Link from "next/link";
 import AlbumGrid from "@/app/components/album-grid";
 import { getAlbums } from "@/app/lib/albums-api";
 
@@ -13,6 +14,15 @@ export default async function HomePage() {
       <h1 className="text-3xl font-bold">Albumcito Facilito</h1>
       <p className="text-base text-gray-600">
         Colecciona tus álbumes de estampas y controla qué te falta.
+      </p>
+      <p className="text-sm text-gray-500">
+        <Link href="/login" className="hover:underline">
+          Inicia sesión
+        </Link>{" "}
+        o{" "}
+        <Link href="/signup" className="hover:underline">
+          crea una cuenta
+        </Link>
       </p>
       <AlbumGrid albums={albums} />
     </main>

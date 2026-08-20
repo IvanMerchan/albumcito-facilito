@@ -18,7 +18,8 @@ This is the backend API for Albumcito Facilito, a sticker-album collection app t
 - **Linting:** ESLint 9 flat config (`typescript-eslint` + `eslint-plugin-prettier`).
 - **Testing:** Jest + `ts-jest` for unit tests, Jest + Supertest for e2e tests. BDD scenarios use `jest-cucumber` with Gherkin `.feature` files (see the `bdd-gherkin` skill).
 - **Validation:** `class-validator` + `class-transformer`, wired via a global `ValidationPipe` (`whitelist`, `forbidNonWhitelisted`, `transform`) in `src/main.ts`.
-- **Persistence layer:** not yet decided beyond an in-memory seed used by the `albums` module — confirm with the user before adding a database/ORM.
+- **Auth:** `@nestjs/jwt` for signing/verifying tokens, `bcryptjs` for password hashing (pure JS — no native build step). Deliberately no Passport: there is a single protected route, handled by a plain `CanActivate` guard (`src/auth/jwt-auth.guard.ts`).
+- **Persistence layer:** not yet decided beyond in-memory state used by the `albums` and `auth` modules — confirm with the user before adding a database/ORM.
 
 ## Commands
 
@@ -53,7 +54,8 @@ Run from this directory (`apis/albumcito-facilito-api/`), or from the repo root 
 ## Domain modules
 
 - `src/albums/` — first domain module. `GET /albums` (list, `AlbumSummaryDto[]`), `GET /albums/:albumId` (detail incl. stickers, `AlbumDetailDto`, 404 if unknown), `GET /albums/:albumId/stickers` (`StickerDto[]`). Data comes from the in-memory seed in `src/albums/albums.data.ts` (`Album`/`Sticker` types in `src/albums/entities/album.entity.ts`); no database yet. Use this module as the reference pattern (module/controller/service/mapper/dto/entities + `*.spec.ts` + `*.bdd.spec.ts` + e2e in `test/albums.e2e-spec.ts`) for any new feature module.
+- `src/auth/` — signup/login. `POST /auth/signup` (email + password + name, `201`, `ConflictException` on a duplicate email), `POST /auth/login` (email + password, `200` via `@HttpCode(HttpStatus.OK)` since Nest's `@Post` default is `201`, generic `UnauthorizedException` on any bad credential so the endpoint can't be used to enumerate emails), `GET /auth/me` (guarded by `JwtAuthGuard`, returns `UserDto`). Users live in a mutable in-memory array in `src/auth/auth.data.ts` (`export const USERS: User[]`, unlike the `readonly` `albums.data.ts` seed) with an exported `resetUsers()` used by every spec's `beforeEach` for test isolation — a module-level mutable array otherwise leaks state across specs in the same Jest worker. `username` is derived from the email local part (`src/auth/auth.username.ts`, `deriveUsername`), never supplied by the client; collisions get a numeric suffix (`-2`, `-3`, ...). `JWT_SECRET`/token expiry are wired in `src/auth/auth.module.ts` via `process.env.JWT_SECRET ?? <dev fallback>` (same bare-env precedent as `main.ts`; there is no `@nestjs/config`/`.env` in this repo) — the fallback is dev-only and must be overridden before any non-local deploy.
 
 ## Status
 
-NestJS 11, TypeScript, ESLint, Jest/Supertest, `class-validator`/`class-transformer`. Has the `albums` feature module (see above) alongside the default placeholder `AppController`/`AppService`. Update this file as the data model, endpoints, and persistence layer evolve.
+NestJS 11, TypeScript, ESLint, Jest/Supertest, `class-validator`/`class-transformer`. Has the `albums` and `auth` feature modules (see above) alongside the default placeholder `AppController`/`AppService`. Update this file as the data model, endpoints, and persistence layer evolve.

@@ -39,10 +39,10 @@ This is a monorepo managed with **Turborepo** and **pnpm workspaces**, with two 
 
 ## Status
 
-Frontend and backend both have their first real feature end-to-end: browsing the album catalog and opening an album to see its stickers.
+Frontend and backend have two features end-to-end: browsing the album catalog (and opening an album to see its stickers), and email/password signup and login.
 
-- Backend: `albums` feature module (`GET /albums`, `GET /albums/:albumId`, `GET /albums/:albumId/stickers`) backed by an in-memory seed (no DB/ORM yet — persistence is still "not decided", confirm with the user before adding one). Runs on port 3001.
-- Frontend: home page (`/`) lists the album catalog; `/albums/[albumId]` shows an album's stickers. Both are Server Components fetching from the backend via `app/lib/albums-api.ts`, forced dynamic (`export const dynamic = "force-dynamic"`) since the data lives in the backend, not at build time.
-- Persistence layer for the backend is still not decided beyond the in-memory seed — confirm with the user before adding a database/ORM.
+- Backend: `albums` feature module (`GET /albums`, `GET /albums/:albumId`, `GET /albums/:albumId/stickers`) and `auth` feature module (`POST /auth/signup`, `POST /auth/login`, `GET /auth/me`, JWT-protected). Both backed by in-memory seeds/state (no DB/ORM yet — persistence is still "not decided", confirm with the user before adding one). Runs on port 3001.
+- Frontend: home page (`/`) lists the album catalog; `/albums/[albumId]` shows an album's stickers; `/signup` and `/login` authenticate against the backend and redirect to `/dashboard/[username]` (the username is derived from the email, not entered by the user). The session is a JWT in an httpOnly cookie, set by a Server Action — no browser-side call ever touches the API directly, so no CORS is needed.
+- Persistence layer for the backend is still not decided beyond in-memory storage — confirm with the user before adding a database/ORM. Registered users do not survive an API restart.
 
 Update this file and the per-component `CLAUDE.md` files as real features and architecture decisions land.

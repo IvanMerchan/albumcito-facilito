@@ -17,6 +17,7 @@ This is the frontend application for Albumcito Facilito, a sticker-album collect
 - **Linting:** ESLint 9 flat config (`eslint-config-next`, core-web-vitals + TypeScript rules).
 - **Testing:** Vitest + React Testing Library, jsdom environment. BDD scenarios use `@amiceli/vitest-cucumber` with Gherkin `.feature` files (see the `bdd-gherkin` skill).
 - **Backend integration:** `app/lib/albums-api.ts` fetches from the API at `process.env.API_URL ?? "http://localhost:3001"`, wrapped in React's `cache()`. Pages that read from it must opt out of static prerendering (`export const dynamic = "force-dynamic"`, see `app/page.tsx`) since the data lives in the backend, not at build time.
+- **Auth:** `app/lib/auth-api.ts` calls `POST /auth/signup`, `POST /auth/login`, `GET /auth/me`. Mutations (`signup`/`login`) are deliberately **not** wrapped in `cache()` — that memoizes reads for one render pass, which is wrong for a POST. The session is a JWT in an httpOnly cookie (`app/lib/session.ts`, `next/headers` `cookies()`), written by the Server Actions in `app/actions/auth.ts`. Because every API call happens server-side (Server Actions, Server Components), `API_URL` stays server-only and the backend needs no CORS config.
 
 ## Commands
 
@@ -39,7 +40,9 @@ Run from this directory (`apps/albumcito-facilito-app/`), or from the repo root 
 - For BDD scenarios, co-locate a Gherkin `.feature` file with a `*.bdd.test.tsx` step-definition file using `@amiceli/vitest-cucumber` (`loadFeature`/`describeFeature`), following `app/page.feature` + `app/page.bdd.test.tsx`. **Gotcha:** each `Given`/`When`/`Then` runs as its own Vitest test under the hood, so React Testing Library does **not** auto-clean the DOM between them — that's what lets state (e.g. a `render()` in `Given`) survive into a later `Then`. But it also means a leftover render from one `Scenario` can bleed into the next one and break queries like `getByRole`. When a feature file has more than one `Scenario`, register `AfterEachScenario(() => cleanup())` (from `@testing-library/react`) once at the top of the `describeFeature` callback — see `app/page.bdd.test.tsx`. Do not add a global `afterEach(cleanup)` in `vitest.setup.ts`: that cleans between every step too, wiping renders before later steps can assert on them.
 - Reusable presentational components go in `app/components/` (e.g. `album-grid.tsx`, `sticker-grid.tsx`) — pure, prop-driven, no data fetching, so they're easy to unit test in isolation.
 - Backend data access goes in `app/lib/` (e.g. `albums-api.ts`, `albums.types.ts`) — plain async functions wrapped in React's `cache()`, never called directly from client components.
-- Prefer Server Components by default; add `"use client"` only when a component needs interactivity, state, or browser-only APIs.
+- Prefer Server Components by default; add `"use client"` only when a component needs interactivity, state, or browser-only APIs. `app/components/auth-form.tsx` is the only Client Component in the app, because `useActionState` requires one.
+- Server Actions live in `app/actions/*.ts` behind a file-level `"use server"` directive. **Every export of a `"use server"` file becomes a public POST endpoint** — never add that directive to a plain helper module (e.g. `app/lib/session.ts`, which writes the session cookie, is intentionally plain, not `"use server"`). `redirect()` (from `next/navigation`) throws internally, so in a Server Action it must be called **outside** any `try/catch` — see `app/actions/auth.ts`.
+- Route protection is page-level (see `app/dashboard/[username]/page.tsx`): no `middleware.ts`/`proxy.ts` yet, since there is currently one protected route and it needs the real `GET /auth/me` check anyway to render the user.
 - Use the `@/*` import alias (configured in `tsconfig.json`) instead of relative paths that climb more than one directory.
 - Style with Tailwind utility classes directly in JSX; add shared design tokens (colors, fonts, spacing) via `@theme` in `app/globals.css` rather than inline styles.
 - Keep components typed end-to-end — no `any`; rely on TypeScript strict mode (already enabled in `tsconfig.json`) to catch mistakes.
@@ -49,10 +52,12 @@ Run from this directory (`apps/albumcito-facilito-app/`), or from the repo root 
 
 - `/` (`app/page.tsx`) — home page, lists the album catalog (`AlbumGrid`) fetched via `getAlbums()`.
 - `/albums/[albumId]` (`app/albums/[albumId]/page.tsx`) — album detail, shows its stickers (`StickerGrid`) fetched via `getAlbum(albumId)`; `notFound()` (with `not-found.tsx`) when the album doesn't exist, `loading.tsx` for the streaming fallback.
+- `/signup` (`app/signup/page.tsx`) and `/login` (`app/login/page.tsx`) — render the shared `AuthForm` client component with `signupAction`/`loginAction`; on success both redirect to `/dashboard/[username]`. Neither reads cookies or the API at render time, so neither needs `force-dynamic`.
+- `/dashboard/[username]` (`app/dashboard/[username]/page.tsx`) — reads the session cookie and calls `GET /auth/me`; redirects to `/login` if there's no cookie or the token is invalid/expired, or to the caller's own `/dashboard/[username]` if the URL segment doesn't match the token's user (the username is cosmetic — authorization comes entirely from the token).
 
 ## Status
 
-Next.js 16, TypeScript, Tailwind CSS v4, ESLint, Vitest. Has its first real feature: the home page lists the album catalog and `/albums/[albumId]` shows an album's stickers (see Routes above), both backed by the NestJS API. Update this file as routing, state management, and API integration patterns evolve further.
+Next.js 16, TypeScript, Tailwind CSS v4, ESLint, Vitest. Has two real features: the home page lists the album catalog and `/albums/[albumId]` shows an album's stickers; `/signup` and `/login` authenticate against the backend and land on `/dashboard/[username]` (see Routes above). Update this file as routing, state management, and API integration patterns evolve further.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
