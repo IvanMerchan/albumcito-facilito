@@ -31,6 +31,18 @@ This is a monorepo managed with **Turborepo** and **pnpm workspaces**, with two 
 - Frontend (`apps/albumcito-facilito-app/`): Next.js 16 (App Router), TypeScript, Tailwind CSS v4. See `apps/albumcito-facilito-app/CLAUDE.md`.
 - Backend (`apis/albumcito-facilito-api/`): NestJS 11, TypeScript. See `apis/albumcito-facilito-api/CLAUDE.md`.
 
+## Skills
+
+- `nestjs-best-practices` — apply when writing/reviewing backend code in `apis/albumcito-facilito-api/`.
+- `vercel-react-best-practices` — apply when writing/reviewing frontend React/Next.js code in `apps/albumcito-facilito-app/`.
+- `bdd-gherkin` — apply whenever adding BDD/Gherkin `.feature` + step-definition tests to either package (jest-cucumber on the backend, `@amiceli/vitest-cucumber` on the frontend). See each package's `CLAUDE.md` for the exact patterns and gotchas.
+
 ## Status
 
-Both the frontend (`apps/albumcito-facilito-app/`) and backend (`apis/albumcito-facilito-api/`) are scaffolded. Frontend: Next.js 16, TypeScript, Tailwind CSS, ESLint, Vitest. Backend: NestJS 11, TypeScript, ESLint, Jest/Supertest — only the default placeholder module exists, no domain modules (albums, stickers, users, etc.) yet. Persistence layer for the backend is not yet decided. Update this file and the per-component `CLAUDE.md` files as real features and architecture decisions land.
+Frontend and backend both have their first real feature end-to-end: browsing the album catalog and opening an album to see its stickers.
+
+- Backend: `albums` feature module (`GET /albums`, `GET /albums/:albumId`, `GET /albums/:albumId/stickers`) backed by an in-memory seed (no DB/ORM yet — persistence is still "not decided", confirm with the user before adding one). Runs on port 3001.
+- Frontend: home page (`/`) lists the album catalog; `/albums/[albumId]` shows an album's stickers. Both are Server Components fetching from the backend via `app/lib/albums-api.ts`, forced dynamic (`export const dynamic = "force-dynamic"`) since the data lives in the backend, not at build time.
+- Persistence layer for the backend is still not decided beyond the in-memory seed — confirm with the user before adding a database/ORM.
+
+Update this file and the per-component `CLAUDE.md` files as real features and architecture decisions land.
