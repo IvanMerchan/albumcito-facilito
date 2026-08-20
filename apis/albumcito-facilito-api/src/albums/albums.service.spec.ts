@@ -40,4 +40,16 @@ describe('AlbumsService', () => {
       NotFoundException,
     );
   });
+
+  it('finds a sticker by id along with its parent album', () => {
+    const { album, sticker } = service.findStickerById('cody-aventuras-01');
+    expect(album.id).toBe('cody-aventuras');
+    expect(sticker.id).toBe('cody-aventuras-01');
+  });
+
+  it('throws NotFoundException for an unknown sticker id', () => {
+    expect(() => service.findStickerById('does-not-exist')).toThrow(
+      NotFoundException,
+    );
+  });
 });

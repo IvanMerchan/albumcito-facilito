@@ -19,4 +19,16 @@ export class AlbumsService {
   findStickers(albumId: string): Sticker[] {
     return this.findOne(albumId).stickers;
   }
+
+  findStickerById(stickerId: string): { album: Album; sticker: Sticker } {
+    for (const album of ALBUMS) {
+      const sticker = album.stickers.find(
+        (candidate) => candidate.id === stickerId,
+      );
+      if (sticker) {
+        return { album, sticker };
+      }
+    }
+    throw new NotFoundException(`Sticker "${stickerId}" not found`);
+  }
 }

@@ -19,7 +19,7 @@ This is the backend API for Albumcito Facilito, a sticker-album collection app t
 - **Testing:** Jest + `ts-jest` for unit tests, Jest + Supertest for e2e tests. BDD scenarios use `jest-cucumber` with Gherkin `.feature` files (see the `bdd-gherkin` skill).
 - **Validation:** `class-validator` + `class-transformer`, wired via a global `ValidationPipe` (`whitelist`, `forbidNonWhitelisted`, `transform`) in `src/main.ts`.
 - **Auth:** `@nestjs/jwt` for signing/verifying tokens, `bcryptjs` for password hashing (pure JS — no native build step). Deliberately no Passport: there is a single protected route, handled by a plain `CanActivate` guard (`src/auth/jwt-auth.guard.ts`).
-- **Persistence layer:** not yet decided beyond in-memory state used by the `albums` and `auth` modules — confirm with the user before adding a database/ORM.
+- **Persistence:** Prisma 7 + SQLite (`@prisma/client`, `@prisma/adapter-libsql`), used by the `auth` and `collection` modules. `albums` is still the in-memory seed — see "Persistence" below for what that split means and why.
 
 ## Commands
 
@@ -38,6 +38,10 @@ Run from this directory (`apis/albumcito-facilito-api/`), or from the repo root 
 | Run e2e tests | `pnpm test:e2e` |
 | Lint (auto-fix) | `pnpm lint` |
 | Format | `pnpm format` |
+| Generate the Prisma client | `pnpm prisma:generate` (also runs automatically on `postinstall`) |
+| Create/apply a migration (dev) | `pnpm prisma:migrate` |
+
+Copy `.env.example` to `.env` before running anything that touches the database (`DATABASE_URL="file:./dev.db"` by default).
 
 ## Development conventions
 
@@ -51,11 +55,23 @@ Run from this directory (`apis/albumcito-facilito-api/`), or from the repo root 
 - Validate every route param with a DTO decorated with `class-validator`, following `src/albums/dto/album-id.param.dto.ts`.
 - Run `pnpm lint`, `pnpm test`, and `pnpm test:e2e` before considering a change done.
 
+## Persistence
+
+Prisma 7 + SQLite, backing the `User` and `CollectedSticker` models (`prisma/schema.prisma`). `albums` deliberately stays an in-memory seed (`src/albums/albums.data.ts`) — the album catalog is fixed content, not user data, so there was nothing to gain from moving it into the database for this iteration.
+
+- `src/prisma/prisma.module.ts` is `@Global()` and exports `PrismaService` — inject it directly in any service, no need to import `PrismaModule` per-feature-module.
+- **Prisma 7 changed how the client connects**: `schema.prisma`'s `datasource` block no longer takes a `url`. `prisma.config.ts` (used only by the CLI — `migrate`/`generate`) reads `DATABASE_URL` itself. `PrismaService` at runtime requires an explicit driver adapter (`@prisma/adapter-libsql`, chosen over `@prisma/adapter-better-sqlite3` because it ships prebuilt binaries — no native compiler needed on Windows, same reasoning as `bcryptjs` over `bcrypt`).
+- Entities in `entities/*.entity.ts` re-export the Prisma-generated type (`export type { User } from '@prisma/client'`) instead of hand-maintaining a duplicate interface, so the shape can't drift from the schema.
+- **Test isolation:** `src/prisma/reset-database.ts` (`resetDatabase(prisma)`) clears every table; call it in each spec's `beforeEach` with a real `PrismaService` in the `TestingModule` (no mocks — same house style as everything else). Tests run against a separate `test.db`, set up by `src/test-env.setup.ts` (a Jest `setupFile`) plus the `pretest`/`pretest:e2e` scripts (`prisma migrate deploy` against it).
+- **SQLite cannot handle concurrent writers well.** Running Jest's default parallel workers against one SQLite file causes `deleteMany()` calls to time out under lock contention. `test`/`test:cov`/`test:e2e` all pass `--runInBand` to force serial execution — this is required, not optional, and also makes the suite noticeably faster (no worker-pool startup cost).
+- `pnpm-workspace.yaml`'s `allowBuilds` had to explicitly allow `prisma` and `@prisma/engines` (pnpm blocks install scripts by default) — expect the same for any future dependency with a native/binary postinstall step.
+
 ## Domain modules
 
-- `src/albums/` — first domain module. `GET /albums` (list, `AlbumSummaryDto[]`), `GET /albums/:albumId` (detail incl. stickers, `AlbumDetailDto`, 404 if unknown), `GET /albums/:albumId/stickers` (`StickerDto[]`). Data comes from the in-memory seed in `src/albums/albums.data.ts` (`Album`/`Sticker` types in `src/albums/entities/album.entity.ts`); no database yet. Use this module as the reference pattern (module/controller/service/mapper/dto/entities + `*.spec.ts` + `*.bdd.spec.ts` + e2e in `test/albums.e2e-spec.ts`) for any new feature module.
-- `src/auth/` — signup/login. `POST /auth/signup` (email + password + name, `201`, `ConflictException` on a duplicate email), `POST /auth/login` (email + password, `200` via `@HttpCode(HttpStatus.OK)` since Nest's `@Post` default is `201`, generic `UnauthorizedException` on any bad credential so the endpoint can't be used to enumerate emails), `GET /auth/me` (guarded by `JwtAuthGuard`, returns `UserDto`). Users live in a mutable in-memory array in `src/auth/auth.data.ts` (`export const USERS: User[]`, unlike the `readonly` `albums.data.ts` seed) with an exported `resetUsers()` used by every spec's `beforeEach` for test isolation — a module-level mutable array otherwise leaks state across specs in the same Jest worker. `username` is derived from the email local part (`src/auth/auth.username.ts`, `deriveUsername`), never supplied by the client; collisions get a numeric suffix (`-2`, `-3`, ...). `JWT_SECRET`/token expiry are wired in `src/auth/auth.module.ts` via `process.env.JWT_SECRET ?? <dev fallback>` (same bare-env precedent as `main.ts`; there is no `@nestjs/config`/`.env` in this repo) — the fallback is dev-only and must be overridden before any non-local deploy.
+- `src/albums/` — first domain module, and the reference pattern (module/controller/service/mapper/dto/entities + `*.spec.ts` + `*.bdd.spec.ts` + e2e in `test/albums.e2e-spec.ts`) for any new feature module. `GET /albums` (list, `AlbumSummaryDto[]`), `GET /albums/:albumId` (detail incl. stickers, `AlbumDetailDto`, 404 if unknown), `GET /albums/:albumId/stickers` (`StickerDto[]`), plus `AlbumsService.findStickerById(stickerId)` (used by `collection` to validate a sticker exists — returns `{ album, sticker }` so callers don't have to resolve the parent album separately). Data comes from the in-memory seed in `src/albums/albums.data.ts`.
+- `src/auth/` — signup/login, now Prisma-backed (was in-memory in an earlier iteration; see git history if you need the old array-based version for reference). `POST /auth/signup` (email + password + name, `201`, `ConflictException` on a duplicate email), `POST /auth/login` (email + password, `200` via `@HttpCode(HttpStatus.OK)` since Nest's `@Post` default is `201`, generic `UnauthorizedException` on any bad credential so the endpoint can't be used to enumerate emails), `GET /auth/me` (guarded by `JwtAuthGuard`, returns `UserDto`). `username` is derived from the email local part (`src/auth/auth.username.ts`, `deriveUsername`), never supplied by the client; collisions get a numeric suffix (`-2`, `-3`, ...). `JWT_SECRET`/token expiry are wired in `src/auth/auth.module.ts` via `process.env.JWT_SECRET ?? <dev fallback>` — the fallback is dev-only and must be overridden before any non-local deploy. `AuthModule` exports `JwtAuthGuard` **and** the `JwtModule` it wraps (not just the guard) — `@UseGuards(JwtAuthGuard)` resolves the guard's own dependencies (`JwtService`) in the *consuming* module's injector context, so any module using the guard needs `JwtService` transitively visible too. `collection` is the first consumer outside `auth` and is what surfaced this.
+- `src/collection/` — a user's sticker collection, and the business logic behind the onboarding activation metric. `POST /me/stickers` (body `{ stickerId }`, guarded, idempotent — adding the same sticker twice is a no-op, not a `409`) and `GET /me/stickers` (guarded), both returning `CollectedStickerDto` (resolves the sticker's album/name via `AlbumsService` so the frontend doesn't need a second call). The first time a user adds a sticker, `CollectionService.addSticker` flips `User.onboardingCompleted` to `true` and logs a structured event (`{ event: "onboarding_completed", userId, signupAt, completedAt, durationMs }`) — the timestamps themselves live in the database (`User.createdAt`, `CollectedSticker.collectedAt`), so the metric survives even if the log line doesn't.
 
 ## Status
 
-NestJS 11, TypeScript, ESLint, Jest/Supertest, `class-validator`/`class-transformer`. Has the `albums` and `auth` feature modules (see above) alongside the default placeholder `AppController`/`AppService`. Update this file as the data model, endpoints, and persistence layer evolve.
+NestJS 11, TypeScript, ESLint, Jest/Supertest, `class-validator`/`class-transformer`, Prisma 7 + SQLite. Has the `albums`, `auth`, and `collection` feature modules (see above) alongside the default placeholder `AppController`/`AppService`. Update this file as the data model, endpoints, and persistence layer evolve.

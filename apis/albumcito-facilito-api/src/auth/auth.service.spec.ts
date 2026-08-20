@@ -1,18 +1,19 @@
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
+import { PrismaService } from '../prisma/prisma.service';
+import { resetDatabase } from '../prisma/reset-database';
 import { AuthService } from './auth.service';
-import { resetUsers } from './auth.data';
 
 describe('AuthService', () => {
   let service: AuthService;
+  let prisma: PrismaService;
 
   beforeEach(async () => {
-    resetUsers();
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
+        PrismaService,
         {
           provide: JwtService,
           useValue: new JwtService({ secret: 'test-secret' }),
@@ -21,6 +22,8 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
+    prisma = module.get<PrismaService>(PrismaService);
+    await resetDatabase(prisma);
   });
 
   it('registers a user and derives a username from the email', async () => {
@@ -32,6 +35,16 @@ describe('AuthService', () => {
 
     expect(user.username).toBe('ivan-merchan');
     expect(user.passwordHash).not.toBe('super-secret');
+  });
+
+  it('starts a new account with onboarding not completed', async () => {
+    const user = await service.signup({
+      email: 'ivan.merchan@gmail.com',
+      password: 'super-secret',
+      name: 'Iván Merchán',
+    });
+
+    expect(user.onboardingCompleted).toBe(false);
   });
 
   it('adds a numeric suffix when the derived username is taken', async () => {

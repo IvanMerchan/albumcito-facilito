@@ -65,8 +65,8 @@ describeFeature(feature, ({ Scenario }) => {
       },
     );
 
-    Then('I am redirected to "/dashboard/ivan-merchan"', () => {
-      expect(redirectedTo).toBe("/dashboard/ivan-merchan");
+    Then('I am redirected to "/onboarding"', () => {
+      expect(redirectedTo).toBe("/onboarding");
       expect(createSession).toHaveBeenCalledWith("token-123");
       expect(result).toBeUndefined();
     });

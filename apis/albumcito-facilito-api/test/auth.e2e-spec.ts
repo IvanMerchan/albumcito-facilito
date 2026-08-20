@@ -3,7 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
-import { resetUsers } from './../src/auth/auth.data';
+import { PrismaService } from './../src/prisma/prisma.service';
+import { resetDatabase } from './../src/prisma/reset-database';
 import { AuthResponseDto } from './../src/auth/dto/auth-response.dto';
 import { UserDto } from './../src/auth/dto/user.dto';
 
@@ -11,8 +12,6 @@ describe('AuthController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
-    resetUsers();
-
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -26,6 +25,7 @@ describe('AuthController (e2e)', () => {
       }),
     );
     await app.init();
+    await resetDatabase(app.get<PrismaService>(PrismaService));
   });
 
   it('/auth/signup (POST) registers a user and returns an access token', () => {

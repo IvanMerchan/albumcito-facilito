@@ -1,21 +1,21 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
+import { PrismaService } from '../prisma/prisma.service';
+import { resetDatabase } from '../prisma/reset-database';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { resetUsers } from './auth.data';
 import { AuthenticatedRequest } from './jwt-auth.guard';
 
 describe('AuthController', () => {
   let controller: AuthController;
 
   beforeEach(async () => {
-    resetUsers();
-
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
         AuthService,
+        PrismaService,
         {
           provide: JwtService,
           useValue: new JwtService({ secret: 'test-secret' }),
@@ -24,6 +24,7 @@ describe('AuthController', () => {
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
+    await resetDatabase(module.get<PrismaService>(PrismaService));
   });
 
   it('registers a user and returns an access token', async () => {
@@ -83,7 +84,7 @@ describe('AuthController', () => {
       },
     } as unknown as AuthenticatedRequest;
 
-    const me = controller.me(request);
+    const me = await controller.me(request);
     expect(me.username).toBe('ivan-merchan');
   });
 });

@@ -1,0 +1,30 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                  String   @id @default(uuid())
+  email               String   @unique
+  username            String   @unique
+  name                String
+  passwordHash        String
+  createdAt           DateTime @default(now())
+  onboardingCompleted Boolean  @default(false)
+
+  collectedStickers CollectedSticker[]
+}
+
+model CollectedSticker {
+  id          String   @id @default(uuid())
+  userId      String
+  stickerId   String
+  collectedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, stickerId])
+}

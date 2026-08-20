@@ -35,7 +35,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  me(@Req() request: AuthenticatedRequest): UserDto {
-    return toUserDto(this.authService.findById(request.user.sub));
+  async me(@Req() request: AuthenticatedRequest): Promise<UserDto> {
+    return toUserDto(await this.authService.findById(request.user.sub));
   }
 }

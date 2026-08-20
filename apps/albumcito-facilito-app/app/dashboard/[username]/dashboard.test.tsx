@@ -2,10 +2,14 @@ import { expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import DashboardPage from "./page";
 import { getMe } from "@/app/lib/auth-api";
+import { getMyStickers } from "@/app/lib/collection-api";
 import { getSessionToken } from "@/app/lib/session";
 
 vi.mock("@/app/lib/auth-api", () => ({
   getMe: vi.fn(),
+}));
+vi.mock("@/app/lib/collection-api", () => ({
+  getMyStickers: vi.fn(),
 }));
 vi.mock("@/app/lib/session", () => ({
   getSessionToken: vi.fn(),
@@ -53,7 +57,7 @@ test("redirects to the token's own dashboard when the URL username does not matc
   );
 });
 
-test("renders a greeting for the current user", async () => {
+test("renders a greeting for the current user without a collection yet", async () => {
   vi.mocked(getSessionToken).mockResolvedValue("valid-token");
   vi.mocked(getMe).mockResolvedValue({
     id: "1",
@@ -61,10 +65,41 @@ test("renders a greeting for the current user", async () => {
     username: "ivan-merchan",
     name: "Iván Merchán",
   });
+  vi.mocked(getMyStickers).mockResolvedValue([]);
 
   render(await DashboardPage(props("ivan-merchan")));
 
   expect(
     screen.getByRole("heading", { level: 1, name: "Hola, Iván Merchán" }),
+  ).toBeDefined();
+  expect(
+    screen.getByText("Todavía no tienes estampas en tu colección."),
+  ).toBeDefined();
+});
+
+test("shows the first collected sticker", async () => {
+  vi.mocked(getSessionToken).mockResolvedValue("valid-token");
+  vi.mocked(getMe).mockResolvedValue({
+    id: "1",
+    email: "ivan.merchan@gmail.com",
+    username: "ivan-merchan",
+    name: "Iván Merchán",
+  });
+  vi.mocked(getMyStickers).mockResolvedValue([
+    {
+      stickerId: "cody-aventuras-01",
+      albumId: "cody-aventuras",
+      stickerName: "Cody explorador",
+      collectedAt: new Date().toISOString(),
+    },
+  ]);
+
+  render(await DashboardPage(props("ivan-merchan")));
+
+  expect(
+    screen.getByText("Tienes 1 estampa en tu colección."),
+  ).toBeDefined();
+  expect(
+    screen.getByText("Tu primera estampa: Cody explorador"),
   ).toBeDefined();
 });

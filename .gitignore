@@ -15,6 +15,12 @@ out/
 .env.local
 .env.*.local
 
+# prisma (sqlite dev/test db, created alongside prisma.config.ts)
+apis/*/dev.db
+apis/*/dev.db-journal
+apis/*/test.db
+apis/*/test.db-journal
+
 # logs
 *.log
 npm-debug.log*

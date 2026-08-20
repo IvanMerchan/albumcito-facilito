@@ -2,9 +2,10 @@ import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { loadFeature, defineFeature } from 'jest-cucumber';
+import { PrismaService } from '../prisma/prisma.service';
+import { resetDatabase } from '../prisma/reset-database';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { resetUsers } from './auth.data';
 import { AuthResponseDto } from './dto/auth-response.dto';
 
 const feature = loadFeature('./auth.feature', { loadRelativePath: true });
@@ -13,12 +14,11 @@ defineFeature(feature, (test) => {
   let controller: AuthController;
 
   beforeEach(async () => {
-    resetUsers();
-
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
         AuthService,
+        PrismaService,
         {
           provide: JwtService,
           useValue: new JwtService({ secret: 'test-secret' }),
@@ -27,13 +27,14 @@ defineFeature(feature, (test) => {
     }).compile();
 
     controller = app.get<AuthController>(AuthController);
+    await resetDatabase(app.get<PrismaService>(PrismaService));
   });
 
   test('Signing up with a new email', ({ given, when, then }) => {
     let response: AuthResponseDto;
 
     given('no account is registered for "ivan.merchan@gmail.com"', () => {
-      // resetUsers() in beforeEach already guarantees this
+      // resetDatabase() in beforeEach already guarantees this
     });
 
     when(

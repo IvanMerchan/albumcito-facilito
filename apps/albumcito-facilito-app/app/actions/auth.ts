@@ -20,21 +20,20 @@ export async function signupAction(
     return { error: "La contraseña debe tener al menos 8 caracteres." };
   }
 
-  let username: string;
   try {
     const auth = await signup({ name, email, password });
     if (!auth) {
       return { error: "Ese correo ya está registrado. Inicia sesión." };
     }
     await createSession(auth.accessToken);
-    username = auth.user.username;
   } catch {
     return { error: "No pudimos crear tu cuenta. Inténtalo de nuevo." };
   }
 
   // redirect() throws internally, so it must stay outside the try/catch above
-  // -- catching it there would swallow the navigation.
-  redirect(`/dashboard/${username}`);
+  // -- catching it there would swallow the navigation. Onboarding (not the
+  // dashboard) is the mandatory next stop right after signup.
+  redirect("/onboarding");
 }
 
 export async function loginAction(
