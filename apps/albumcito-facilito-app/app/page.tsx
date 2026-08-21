@@ -1,13 +1,20 @@
 import Link from "next/link";
 import AlbumGrid from "@/app/components/album-grid";
+import PopularAlbums from "@/app/components/popular-albums";
+import PopularStickers from "@/app/components/popular-stickers";
 import { getAlbums } from "@/app/lib/albums-api";
+import { getPopularAlbums, getPopularStickers } from "@/app/lib/popular-picks-api";
 
 // The album list lives in the backend API, not at build time, so this page
 // must render per-request instead of being statically prerendered.
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const albums = await getAlbums();
+  const [albums, popularAlbums, popularStickers] = await Promise.all([
+    getAlbums(),
+    getPopularAlbums(),
+    getPopularStickers(),
+  ]);
 
   return (
     <main className="flex min-h-screen flex-col items-center gap-6 p-8">
@@ -24,6 +31,8 @@ export default async function HomePage() {
           crea una cuenta
         </Link>
       </p>
+      <PopularAlbums albums={popularAlbums} />
+      <PopularStickers stickers={popularStickers} />
       <AlbumGrid albums={albums} />
     </main>
   );

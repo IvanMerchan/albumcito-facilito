@@ -3,9 +3,14 @@ import { expect, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import HomePage from "./page";
 import { getAlbums } from "@/app/lib/albums-api";
+import { getPopularAlbums, getPopularStickers } from "@/app/lib/popular-picks-api";
 
 vi.mock("@/app/lib/albums-api", () => ({
   getAlbums: vi.fn(),
+}));
+vi.mock("@/app/lib/popular-picks-api", () => ({
+  getPopularAlbums: vi.fn(),
+  getPopularStickers: vi.fn(),
 }));
 
 const feature = await loadFeature("./page.feature");
@@ -27,6 +32,10 @@ describeFeature(feature, ({ Scenario, AfterEachScenario }) => {
           ownedStickers: 4,
         },
       ]);
+      // These scenarios aren't about popular picks; empty lists keep those
+      // sections omitted so they don't interfere with the album assertions.
+      vi.mocked(getPopularAlbums).mockResolvedValue([]);
+      vi.mocked(getPopularStickers).mockResolvedValue([]);
     });
 
     When("I open the home page", async () => {
@@ -56,6 +65,10 @@ describeFeature(feature, ({ Scenario, AfterEachScenario }) => {
           ownedStickers: 4,
         },
       ]);
+      // These scenarios aren't about popular picks; empty lists keep those
+      // sections omitted so they don't interfere with the album assertions.
+      vi.mocked(getPopularAlbums).mockResolvedValue([]);
+      vi.mocked(getPopularStickers).mockResolvedValue([]);
     });
 
     When("I open the home page", async () => {

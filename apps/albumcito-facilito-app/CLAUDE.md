@@ -19,6 +19,7 @@ This is the frontend application for Albumcito Facilito, a sticker-album collect
 - **Backend integration:** `app/lib/albums-api.ts` fetches from the API at `process.env.API_URL ?? "http://localhost:3001"`, wrapped in React's `cache()`. Pages that read from it must opt out of static prerendering (`export const dynamic = "force-dynamic"`, see `app/page.tsx`) since the data lives in the backend, not at build time.
 - **Auth:** `app/lib/auth-api.ts` calls `POST /auth/signup`, `POST /auth/login`, `GET /auth/me`. Mutations (`signup`/`login`) are deliberately **not** wrapped in `cache()` — that memoizes reads for one render pass, which is wrong for a POST. The session is a JWT in an httpOnly cookie (`app/lib/session.ts`, `next/headers` `cookies()`), written by the Server Actions in `app/actions/auth.ts`. Because every API call happens server-side (Server Actions, Server Components), `API_URL` stays server-only and the backend needs no CORS config.
 - **Collection:** `app/lib/collection-api.ts` calls `POST /me/stickers` (`addSticker`, not `cache()`'d, same reasoning as `signup`/`login`) and `GET /me/stickers` (`getMyStickers`, `cache()`'d). Used by the onboarding flow (`app/onboarding/`) and the dashboard, which shows a summary of the signed-in user's collection.
+- **Popular picks:** `app/lib/popular-picks-api.ts` calls `GET /popular-picks/albums` and `GET /popular-picks/stickers` (both `cache()`'d reads, no auth header — the endpoints are public). Rendered on the home page by `PopularAlbums`/`PopularStickers`, which each return `null` (render nothing) when their list is empty, rather than an empty-state placeholder — see `app/components/popular-albums.tsx`.
 
 ## Commands
 
@@ -52,7 +53,7 @@ Run from this directory (`apps/albumcito-facilito-app/`), or from the repo root 
 
 ## Routes
 
-- `/` (`app/page.tsx`) — home page, lists the album catalog (`AlbumGrid`) fetched via `getAlbums()`.
+- `/` (`app/page.tsx`) — home page. Fetches the album catalog, popular albums, and popular stickers in parallel (`Promise.all`) and renders, in order: "Popular albums" and "Popular stickers" (each omitted if empty), then the full album catalog (`AlbumGrid`).
 - `/albums/[albumId]` (`app/albums/[albumId]/page.tsx`) — album detail, shows its stickers (`StickerGrid`) fetched via `getAlbum(albumId)`; `notFound()` (with `not-found.tsx`) when the album doesn't exist, `loading.tsx` for the streaming fallback.
 - `/signup` (`app/signup/page.tsx`) and `/login` (`app/login/page.tsx`) — render the shared `AuthForm` client component with `signupAction`/`loginAction`. On success, `loginAction` redirects to `/dashboard/[username]`; `signupAction` redirects to `/onboarding` instead — a brand-new account always lands there first. Neither page reads cookies or the API at render time, so neither needs `force-dynamic`.
 - `/onboarding` (`app/onboarding/page.tsx`) and `/onboarding/[albumId]` (`app/onboarding/[albumId]/page.tsx`) — the mandatory first-sticker flow reached only via `signupAction`'s redirect (a normal `login` never routes here). Step 1 lists the album catalog (`OnboardingAlbumPicker`); step 2 lists that album's stickers (`OnboardingStickerPicker`), each a `<form>` bound to `addStickerAction`. Both require a session (redirect to `/login` otherwise); step 2's `addStickerAction` redirects to `/dashboard/[username]` once the sticker is added.
@@ -60,7 +61,7 @@ Run from this directory (`apps/albumcito-facilito-app/`), or from the repo root 
 
 ## Status
 
-Next.js 16, TypeScript, Tailwind CSS v4, ESLint, Vitest. Has three real features: the home page lists the album catalog and `/albums/[albumId]` shows an album's stickers; `/signup` and `/login` authenticate against the backend; every new signup is routed through `/onboarding` to add a first sticker before reaching `/dashboard/[username]` (see Routes above). Update this file as routing, state management, and API integration patterns evolve further.
+Next.js 16, TypeScript, Tailwind CSS v4, ESLint, Vitest. Has four real features: the home page lists the album catalog (plus popular albums/stickers ranked by real collection data) and `/albums/[albumId]` shows an album's stickers; `/signup` and `/login` authenticate against the backend; every new signup is routed through `/onboarding` to add a first sticker before reaching `/dashboard/[username]` (see Routes above). Update this file as routing, state management, and API integration patterns evolve further.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
